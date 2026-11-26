@@ -21,7 +21,7 @@
 
 脚本要识别的两个目标就在这一行里：
 - **1:1 按钮**（B 功能的触发标志）——对应模板 `tpl_ratio.png`
-- **查看原视频按钮**（A 功能的触发标志，视频文件才显示）——对应模板 `video.PNG`，位于工具栏右侧
+- **查看原视频按钮**（A 功能的触发标志，视频文件才显示）——用 OCR 识别文字，位于工具栏右侧
 
 ---
 
@@ -29,29 +29,27 @@
 
 ### 1. 依赖
 
-只需三个库（不需要 OCR）：
+需要四个库（A 用 OCR，B 用 OpenCV）：
 
 ```cmd
-pip install pillow numpy opencv-python
+pip install pillow numpy opencv-python rapidocr onnxruntime
 ```
 
 ### 2. 模板图片
 
-脚本同目录下必须放置两张模板图（就是你自己截的图）：
+脚本同目录下只需放置一张模板图（B 功能用；A 功能用 OCR，不需要模板）：
 
 | 文件 | 内容 | 用途 |
 |---|---|---|
 | `tpl_ratio.png` | 1:1 按钮截图 | B 功能触发条件 |
-| `video.PNG` | 「查看原视频」按钮截图 | A 功能触发条件 |
 
 示例（实际文件是你截取的原图）：
 
 | 模板 | 尺寸 | 说明 |
 |---|---|---|
 | `tpl_ratio.png` | 约 39×30 | 建议只截图标本身，别带周围空白 |
-| `video.PNG` | 约 69×20 | 只截「查看原视频(」固定文字部分，不要截后面的文件大小数字 |
 
-> 提示：文件名的大小写要和脚本里的 `VIDEO_TPL` / `TRIGGER_TPL` 一致；如果改成英文名可避免某些环境下的中文路径问题（脚本已用 `imdecode` 规避，中文名也能用）。
+> 提示：A 功能用 RapidOCR 直接识别顶部横条里的「查看原视频」文字并点击，无需模板图。首次运行 OCR 会加载本地模型（约 1 秒）。
 
 ---
 
@@ -87,7 +85,7 @@ python media_ocr_bot.py
    ↓
 截取顶部 52px 横条
    ↓
-A：匹配 video.PNG ──命中──> 点击「查看原视频」→ 等 2 秒
+A：OCR 识别「查看原视频」──命中──> 点击 → 等 2 秒
    │未命中
    ↓
 B：匹配 tpl_ratio.png ──命中──> Ctrl+S → 等 0.8 秒 → Alt+S → 等 0.8 秒
@@ -102,7 +100,7 @@ B：匹配 tpl_ratio.png ──命中──> Ctrl+S → 等 0.8 秒 → Alt+S �
 典型日志：
 
 ```
-A 模板已加载: video.PNG (69x20)
+A（查看原视频 OCR）已启用
 B 模板已加载: tpl_ratio.png (39x30)
 [1] A 匹配[NCC] conf=0.95 scale=0.80
 [1] A 命中「查看原视频」@(2100,30) -> 点击后等待 2.0s。
@@ -119,7 +117,7 @@ B 模板已加载: tpl_ratio.png (39x30)
 脚本顶部「可配置参数」区：
 
 ```python
-ENABLE_A = True      # A：匹配 video.PNG「查看原视频」并点击
+ENABLE_A = True      # A：OCR 识别「查看原视频」并点击
 ENABLE_B = True      # B：匹配 tpl_ratio.png 后保存
 ```
 
@@ -185,8 +183,7 @@ ENABLE_B = True      # B：匹配 tpl_ratio.png 后保存
 
 | 文件 | 用途 |
 |---|---|
-| `media_ocr_bot.py` | 主脚本（虽然名字带 ocr，现已不用 OCR） |
+| `media_ocr_bot.py` | 主脚本（A 用 OCR，B 用模板匹配） |
 | `tpl_ratio.png` | 1:1 按钮模板 |
-| `video.PNG` | 查看原视频按钮模板 |
 | `titlebar_example.png` | 本文档的标题栏示例图 |
 | `README.md` | 本文档 |
