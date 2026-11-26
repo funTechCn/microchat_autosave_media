@@ -61,14 +61,7 @@ pip install pillow numpy opencv-python
 2. 在命令行进入脚本目录并运行：
 
 ```cmd
-cd /d Z:\docker-hermes\data\workspace\dsh
 python media_ocr_bot.py
-```
-
-推荐用 `pythonw` 启动，避免命令行窗口抢焦点：
-
-```cmd
-pythonw media_ocr_bot.py
 ```
 
 3. 启动后有 **5 秒准备时间**，提示：
