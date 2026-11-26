@@ -1,0 +1,8 @@
+# 测试素材 / 截图（本地保留，不提交）
+s3.PNG
+capture*.PNG
+screen*.PNG
+debug_hit.png
+
+# 缩略图缓存
+Thumbs.db
