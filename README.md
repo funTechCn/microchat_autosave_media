@@ -194,4 +194,4 @@ ENABLE_B = True      # B：匹配 tpl_ratio.png 后保存
 | `tpl_ratio.png` | 1:1 按钮模板 |
 | `video.PNG` | 查看原视频按钮模板 |
 | `titlebar_example.png` | 本文档的标题栏示例图 |
-| `使用说明.md` | 本文档 |
+| `README.md` | 本文档 |
