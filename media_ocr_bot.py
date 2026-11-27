@@ -49,7 +49,7 @@ ENABLE_A = True      # A：OCR 识别「查看原视频」并点击
 ENABLE_B = True     # B：匹配 tpl_ratio.png 后发 Ctrl+S -> Alt+S 保存
 
 # --- 功能 A 参数 ---
-OCR_SCALE = 3.0          # OCR 放大倍数（小字放大更清晰，减少「查看」被误认成「山」）
+OCR_SCALE = 1.0          # OCR 放大倍数：实测 1.0 识别「查看原视频」准确且最快（0.86s），3.0 会慢到 8s
 WAIT_VIDEO = 2.0         # 点击后等待秒数
 CLICK_Y_OFFSET = 8       # 点击点相对文字框中心的下移量
 
@@ -201,7 +201,7 @@ def wait_foreground(hwnd, timeout=10, quiet=False):
             return False
         time.sleep(ESC_POLL)
     waited = time.time() - start
-    if waited > 0.5 and not quiet:
+    if waited > 0.2 and not quiet:
         print("    [诊断] wait_foreground 等待 %.1fs，前台: %s" % (waited, _fg_title()))
     return True
 
@@ -223,18 +223,23 @@ def get_ocr():
 
 
 def ocr_video_button(img, base_x, base_y):
-    """OCR 识别横条里的「查看原视频」，返回 (命中, x, y, 文本, 所有文本)。"""
+    """OCR 只识别横条右侧 1/4（「查看原视频」按钮固定在右侧），返回 (命中, x, y, 文本, 所有文本)。"""
+    from PIL import Image
     scale = OCR_SCALE
-    im = img.resize((int(img.width * scale), int(img.height * scale))) if scale != 1.0 else img
-    res = get_ocr()(np.asarray(im))
+    # 只取右侧 1/4：2560px -> 640px，OCR 更快
+    crop_x = int(img.width * 0.75)
+    crop = img.crop((crop_x, 0, img.width, img.height))
+    if scale != 1.0:
+        crop = crop.resize((int(crop.width * scale), int(crop.height * scale)))
+    res = get_ocr()(np.asarray(crop))
     all_texts = list(res.txts or [])
     for txt, box in zip(all_texts, res.boxes if res.boxes is not None else []):
         n = re.sub(r"\s+", "", str(txt)).replace("：", ":")
         # 严格匹配「查看原视频」（必须四字齐全，不放宽为仅「原视频」）
         if "查看原视频" in n:
             c = np.asarray(box).reshape(-1, 2).mean(axis=0)
-            # 直接点识别文字的中心（文字本身就在按钮上，点它即可触发）
-            return (True, base_x + c[0] / scale,
+            # 换算回屏幕坐标：裁剪区起点 + 框中心
+            return (True, base_x + crop_x + c[0] / scale,
                     base_y + c[1] / scale + CLICK_Y_OFFSET, txt, all_texts)
     return (False, 0, 0, "", all_texts)
 
@@ -340,7 +345,33 @@ def main():
 
         handled = False
 
-        # 2) 功能 A：OCR 识别「查看原视频」-> 点击
+        # 2) 功能 B 优先：模板匹配 1:1（毫秒级）-> Ctrl+S -> Alt+S（不点击、不抢焦点）
+        #    图片界面有 1:1 按钮、视频界面有「查看原视频」，二者互斥。
+        #    B 先判断可避免图片界面白跑昂贵的 OCR（曾导致每轮 20 秒）。
+        if ENABLE_B and not handled:
+            bx, by, score = match_icon(bar_bgr, tpl_trigger)
+            if bx is not None:
+                print("[%d] B 命中 1:1 conf=%.2f @(%.0f,%.0f) -> Ctrl+S" %
+                      (n, score, left + bx, top + by))
+                if DEBUG_SAVE_IMAGE:
+                    try:
+                        img.save(DEBUG_IMAGE_PATH)
+                    except Exception:
+                        pass
+                hotkey(VK_CONTROL, VK_S)
+                if not interruptible_sleep(AFTER_SAVE_DELAY):
+                    break
+                if CONFIRM_KEY == "enter":
+                    press_key(VK_RETURN)
+                else:
+                    hotkey(VK_MENU, VK_S)
+                count_b += 1
+                handled = True
+                print("    已保存（累计 B %d 张）。" % count_b)
+                if not interruptible_sleep(AFTER_ENTER_DELAY):
+                    break
+
+        # 3) 功能 A：B 未命中（视频界面）才跑 OCR 识别「查看原视频」-> 点击
         if ENABLE_A and not handled:
             ok, ax, ay, txt, all_texts = ocr_video_button(img, left, top)
             if DEBUG_OCR_TEXT:
@@ -366,30 +397,6 @@ def main():
                 count_a += 1
                 handled = True
                 if not interruptible_sleep(WAIT_VIDEO):
-                    break
-
-        # 3) 功能 B：模板匹配 1:1 -> Ctrl+S -> Alt+S（不点击、不抢焦点）
-        if ENABLE_B and not handled:
-            bx, by, score = match_icon(bar_bgr, tpl_trigger)
-            if bx is not None:
-                print("[%d] B 命中 1:1 conf=%.2f @(%.0f,%.0f) -> Ctrl+S" %
-                      (n, score, left + bx, top + by))
-                if DEBUG_SAVE_IMAGE:
-                    try:
-                        img.save(DEBUG_IMAGE_PATH)
-                    except Exception:
-                        pass
-                hotkey(VK_CONTROL, VK_S)
-                if not interruptible_sleep(AFTER_SAVE_DELAY):
-                    break
-                if CONFIRM_KEY == "enter":
-                    press_key(VK_RETURN)
-                else:
-                    hotkey(VK_MENU, VK_S)
-                count_b += 1
-                handled = True
-                print("    已保存（累计 B %d 张）。" % count_b)
-                if not interruptible_sleep(AFTER_ENTER_DELAY):
                     break
 
         if not handled:
